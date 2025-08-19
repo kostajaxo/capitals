@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Capital Quiz — Πρωτεύουσες</title>
+<style>
+  :root{
+    --bg:#0f1020; --card:#181a2e; --text:#eef1ff; --muted:#b9c0ff; --accent:#6ea8fe; --accent2:#a1e3a1; --wrong:#ff7b7b; --right:#6ef2a7; --shadow:rgba(0,0,0,.35);
+  }
+  [data-theme="light"]{
+    --bg:#f7f8ff; --card:#ffffff; --text:#151735; --muted:#5c629e; --accent:#3b6cff; --accent2:#198754; --wrong:#dc3545; --right:#0aa06e; --shadow:rgba(0,0,0,.12);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; font:16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+    background:radial-gradient(1200px 600px at 80% -20%, rgba(110,168,254,.15), transparent), var(--bg);
+    color:var(--text); display:flex; align-items:center; justify-content:center; padding:24px;
+  }
+  .app{width:min(920px,100%); }
+  header{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px}
+  .brand{display:flex; align-items:center; gap:10px; font-weight:800; letter-spacing:.3px}
+  .brand .logo{width:36px; height:36px; border-radius:10px; background:
+    conic-gradient(from 120deg, var(--accent), var(--accent2), var(--accent));
+    box-shadow:0 6px 18px var(--shadow);
+  }
+  .card{
+    background:var(--card); border-radius:16px; box-shadow:0 10px 30px var(--shadow);
+    padding:18px; border:1px solid rgba(255,255,255,.06);
+  }
+  .row{display:flex; gap:16px; flex-wrap:wrap}
+  .controls{display:flex; gap:10px; flex-wrap:wrap}
+  .pill{
+    background:transparent; color:var(--text); border:1px solid rgba(255,255,255,.15);
+    padding:10px 14px; border-radius:999px; cursor:pointer; transition:.2s;
+  }
+  .pill[aria-pressed="true"], .pill:hover{border-color:var(--accent); box-shadow:0 0 0 3px rgba(110,168,254,.15)}
+  .switch{display:inline-flex; align-items:center; gap:8px}
+  .switch input{accent-color:var(--accent)}
+  .stats{display:flex; gap:14px; flex-wrap:wrap; color:var(--muted); font-weight:600}
+  .stats b{color:var(--text)}
+  main{margin-top:16px}
+  .question{font-size:1.25rem; font-weight:800; margin:8px 0 14px}
+  .options{display:grid; grid-template-columns:1fr; gap:10px}
+  @media (min-width:680px){ .options{grid-template-columns:1fr 1fr} }
+  .btn{
+    background:#11142a; color:var(--text); border:1px solid rgba(255,255,255,.12);
+    padding:14px; border-radius:12px; cursor:pointer; text-align:left; font-weight:700; transition:.15s;
+  }
+  .btn:hover{transform:translateY(-1px); border-color:var(--accent)}
+  .btn.correct{background:rgba(13,110,253,.08); border-color:var(--right); outline:2px solid rgba(110,242,167,.35)}
+  .btn.wrong{background:rgba(220,53,69,.08); border-color:var(--wrong); outline:2px solid rgba(220,53,69,.25)}
+  .footer{display:flex; justify-content:space-between; align-items:center; margin-top:12px; color:var(--muted)}
+  .primary{
+    background:linear-gradient(90deg, var(--accent), #9b7bff);
+    color:#fff; border:none; padding:12px 16px; border-radius:12px; font-weight:800; cursor:pointer; box-shadow:0 10px 22px var(--shadow);
+  }
+  .ghost{background:transparent; border:1px solid rgba(255,255,255,.15); color:var(--text); padding:10px 14px; border-radius:10px; cursor:pointer;}
+  .timer{height:10px; background:rgba(255,255,255,.08); border-radius:999px; overflow:hidden; margin:10px 0 0}
+  .timer>div{height:100%; width:100%; background:linear-gradient(90deg, var(--accent), var(--wrong)); transition:width .2s linear}
+  .muted{color:var(--muted)}
+  .end h2{margin:8px 0}
+  .kbd{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; background:rgba(255,255,255,.08); padding:2px 6px; border-radius:6px; border:1px solid rgba(255,255,255,.15)}
+</style>
+</head>
+<body data-theme="dark">
+  <div class="app">
+    <header>
+      <div class="brand"><div class="logo" aria-hidden="true"></div><div>Capital Quiz</div></div>
+      <div class="controls">
+        <button class="pill" id="easyBtn" aria-pressed="true">Εύκολο</button>
+        <button class="pill" id="medBtn" aria-pressed="false">Μεσαίο</button>
+        <button class="pill" id="hardBtn" aria-pressed="false">Δύσκολο</button>
+        <label class="switch pill" title="Χρονόμετρο 15s">
+          <input type="checkbox" id="timerToggle" /> Χρονόμετρο 15s
+        </label>
+        <button class="pill" id="themeBtn" title="Εναλλαγή θέματος (L/D)">🌓 Θέμα</button>
+      </div>
+    </header>
+
+    <section class="card">
+      <div class="row stats" id="stats">
+        <div>Ερώτηση: <b id="qNum">1</b>/10</div>
+        <div>Σκορ: <b id="score">0</b></div>
+        <div>Streak: <b id="streak">0</b></div>
+        <div>Καλύτερο: <b id="best">0</b></div>
+        <div id="modeLabel" class="muted">Λειτουργία: Εύκολο</div>
+      </div>
+
+      <main id="game">
+        <div class="question" id="question">Ποια είναι η πρωτεύουσα της …;</div>
+        <div class="options" id="options"></div>
+        <div class="timer" id="timer" style="display:none"><div id="timerFill"></div></div>
+        <div class="footer">
+          <div class="muted">Υπόδειξη: <span class="kbd">1</span>–<span class="kbd">4</span> για επιλογές, <span class="kbd">N</span> επόμενη</div>
+          <div>
+            <button class="ghost" id="skipBtn" title="Χωρίς απώλεια σκορ">Παράλειψη</button>
+            <button class="primary" id="nextBtn" disabled>Επόμενη</button>
+          </div>
+        </div>
+      </main>
+
+      <section class="end" id="end" style="display:none">
+        <h2>Γύρος ολοκληρώθηκε!</h2>
+        <p>Σκορ: <b id="finalScore">0</b> | Σωστά: <b id="finalCorrect">0</b>/10 | Μέγιστο streak: <b id="finalStreak">0</b></p>
+        <p class="muted" id="feedback"></p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px">
+          <button class="primary" id="playAgainBtn">Παίξε ξανά</button>
+          <button class="ghost" id="reviewBtn">Ανασκόπηση ερωτήσεων</button>
+        </div>
+        <div id="review" style="margin-top:12px; display:none"></div>
+      </section>
+    </section>
+
+    <p class="muted" style="margin-top:10px">
+      Made with ❤️ για εξάσκηση στη γεωγραφία. Θέλεις να προσθέσουμε ήπειρο/χάρτες/ήχους; Πες μου!
+    </p>
+  </div>
+
+<script>
+/** ===== Dataset =====
+  Κάθε αντικείμενο: {country, capital, continent, tag}
+  tag: 'easy' (γνωστές), 'med' (μέτριες), 'hard' (δύσκολες/παγίδες)
+**/
+const DATA = [
+  // Europe — easy
+  {country:"Ελλάδα", capital:"Αθήνα", continent:"Ευρώπη", tag:"easy"},
+  {country:"Ιταλία", capital:"Ρώμη", continent:"Ευρώπη", tag:"easy"},
+  {country:"Γαλλία", capital:"Παρίσι", continent:"Ευρώπη", tag:"easy"},
+  {country:"Ισπανία", capital:"Μαδρίτη", continent:"Ευρώπη", tag:"easy"},
+  {country:"Γερμανία", capital:"Βερολίνο", continent:"Ευρώπη", tag:"easy"},
+  {country:"Ηνωμένο Βασίλειο", capital:"Λονδίνο", continent:"Ευρώπη", tag:"easy"},
+  {country:"Πορτογαλία", capital:"Λισαβόνα", continent:"Ευρώπη", tag:"easy"},
+  {country:"Ολλανδία", capital:"Άμστερνταμ", continent:"Ευρώπη", tag:"easy"},
+  {country:"Βέλγιο", capital:"Βρυξέλλες", continent:"Ευρώπη", tag:"easy"},
+  {country:"Αυστρία", capital:"Βιέννη", continent:"Ευρώπη", tag:"easy"},
+  {country:"Ελβετία", capital:"Βέρνη", continent:"Ευρώπη", tag:"easy"},
+  {country:"Σουηδία", capital:"Στοκχόλμη", continent:"Ευρώπη", tag:"easy"},
+  {country:"Νορβηγία", capital:"Όσλο", continent:"Ευρώπη", tag:"easy"},
+  {country:"Δανία", capital:"Κοπεγχάγη", continent:"Ευρώπη", tag:"easy"},
+  {country:"Ιρλανδία", capital:"Δουβλίνο", continent:"Ευρώπη", tag:"easy"},
+  {country:"Πολωνία", capital:"Βαρσοβία", continent:"Ευρώπη", tag:"easy"},
+  {country:"Τσεχία", capital:"Πράγα", continent:"Ευρώπη", tag:"easy"},
+  {country:"Ουγγαρία", capital:"Βουδαπέστη", continent:"Ευρώπη", tag:"easy"},
+  {country:"Ρουμανία", capital:"Βουκουρέστι", continent:"Ευρώπη", tag:"med"},
+  {country:"Βουλγαρία", capital:"Σόφια", continent:"Ευρώπη", tag:"med"},
+  {country:"Σερβία", capital:"Βελιγράδι", continent:"Ευρώπη", tag:"med"},
+  {country:"Κροατία", capital:"Ζάγκρεμπ", continent:"Ευρώπη", tag:"med"},
+  {country:"Σλοβενία", capital:"Λιουμπλιάνα", continent:"Ευρώπη", tag:"med"},
+  {country:"Σλοβακία", capital:"Μπρατισλάβα", continent:"Ευρώπη", tag:"med"},
+  {country:"Λιθουανία", capital:"Βίλνιους", continent:"Ευρώπη", tag:"med"},
+  {country:"Λετονία", capital:"Ρίγα", continent:"Ευρώπη", tag:"med"},
+  {country:"Εσθονία", capital:"Τάλιν", continent:"Ευρώπη", tag:"med"},
+  {country:"Φινλανδία", capital:"Ελσίνκι", continent:"Ευρώπη", tag:"med"},
+  {country:"Ισλανδία", capital:"Ρέυκιαβικ", continent:"Ευρώπη", tag:"med"},
+  {country:"Ουκρανία", capital:"Κίεβο", continent:"Ευρώπη", tag:"med"},
+  {country:"Λευκορωσία", capital:"Μινσκ", continent:"Ευρώπη", tag:"hard"},
+  {country:"Μολδαβία", capital:"Κισινάου", continent:"Ευρώπη", tag:"hard"},
+  {country:"Μαυροβούνιο", capital:"Ποντγκόριτσα", continent:"Ευρώπη", tag:"hard"},
+  {country:"Βόρεια Μακεδονία", capital:"Σκόπια", continent:"Ευρώπη", tag:"med"},
+  {country:"Αλβανία", capital:"Τίρανα", continent:"Ευρώπη", tag:"med"},
+  {country:"Βοσνία και Ερζεγοβίνη", capital:"Σαράγεβο", continent:"Ευρώπη", tag:"med"},
+  {country:"Λουξεμβούργο", capital:"Λουξεμβούργο", continent:"Ευρώπη", tag:"hard"},
+  {country:"Μάλτα", capital:"Βαλέτα", continent:"Ευρώπη", tag:"med"},
+  {country:"Κύπρος", capital:"Λευκωσία", continent:"Ευρώπη", tag:"easy"},
+  {country:"Ανδόρα", capital:"Ανδόρα λα Βέγια", continent:"Ευρώπη", tag:"hard"},
+  {country:"Μονακό", capital:"Μονακό", continent:"Ευρώπη", tag:"hard"},
+  {country:"Λίχτενσταϊν", capital:"Βαντούζ", continent:"Ευρώπη", tag:"hard"},
+  {country:"Σαν Μαρίνο", capital:"Σαν Μαρίνο", continent:"Ευρώπη", tag:"hard"},
+
+  // Americas
+  {country:"ΗΠΑ", capital:"Ουάσιγκτον", continent:"Αμερική", tag:"easy"},
+  {country:"Καναδάς", capital:"Οττάβα", continent:"Αμερική", tag:"easy"},
+  {country:"Μεξικό", capital:"Πόλη του Μεξικού", continent:"Αμερική", tag:"easy"},
+  {country:"Βραζιλία", capital:"Μπραζίλια", continent:"Αμερική", tag:"med"},
+  {country:"Αργεντινή", capital:"Μπουένος Άιρες", continent:"Αμερική", tag:"easy"},
+  {country:"Χιλή", capital:"Σαντιάγο", continent:"Αμερική", tag:"med"},
+  {country:"Περού", capital:"Λίμα", continent:"Αμερική", tag:"med"},
+  {country:"Κολομβία", capital:"Μπογκοτά", continent:"Αμερική", tag:"med"},
+  {country:"Βενεζουέλα", capital:"Καράκας", continent:"Αμερική", tag:"hard"},
+  {country:"Βολιβία", capital:"Σούκρε", continent:"Αμερική", tag:"hard"}, // (συνταγμ. πρωτεύουσα Λα Παζ — εκτελεστική)
+  {country:"Παραγουάη", capital:"Ασουνσιόν", continent:"Αμερική", tag:"hard"},
+  {country:"Ουρουγουάη", capital:"Μοντεβιδέο", continent:"Αμερική", tag:"med"},
+  {country:"Ισημερινός", capital:"Κίτο", continent:"Αμερική", tag:"med"},
+  {country:"Κούβα", capital:"Αβάνα", continent:"Αμερική", tag:"med"},
+  {country:"Δομινικανή Δημοκρατία", capital:"Άγιος Δομίνικος", continent:"Αμερική", tag:"med"},
+  {country:"Παναμάς", capital:"Πόλη του Παναμά", continent:"Αμερική", tag:"hard"},
+  {country:"Κόστα Ρίκα", capital:"Σαν Χοσέ", continent:"Αμερική", tag:"hard"},
+  {country:"Γουατεμάλα", capital:"Πόλη της Γουατεμάλα", continent:"Αμερική", tag:"hard"},
+
+  // Africa
+  {country:"Αίγυπτος", capital:"Κάιρο", continent:"Αφρική", tag:"easy"},
+  {country:"Νότια Αφρική", capital:"Πρετόρια", continent:"Αφρική", tag:"hard"}, // (νομοθετική: Κέιπ Τάουν)
+  {country:"Νιγηρία", capital:"Αμπούτζα", continent:"Αφρική", tag:"hard"},
+  {country:"Αιθιοπία", capital:"Αντίς Αμπέμπα", continent:"Αφρική", tag:"med"},
+  {country:"Κένυα", capital:"Ναϊρόμπι", continent:"Αφρική", tag:"med"},
+  {country:"Μαρόκο", capital:"Ραμπάτ", continent:"Αφρική", tag:"med"},
+  {country:"Αλγερία", capital:"Αλγέρι", continent:"Αφρική", tag:"med"},
+  {country:"Τυνησία", capital:"Τύνιδα", continent:"Αφρική", tag:"med"},
+  {country:"Γκάνα", capital:"Άκρα", continent:"Αφρική", tag:"hard"},
+  {country:"Σενεγάλη", capital:"Ντακάρ", continent:"Αφρική", tag:"hard"},
+  {country:"Ακτή Ελεφαντοστού", capital:"Γιαμουσουκρό", continent:"Αφρική", tag:"hard"},
+  {country:"Τανζανία", capital:"Ντοντόμα", continent:"Αφρική", tag:"hard"}, // (ντε φάκτο Νταρ ες Σαλάμ)
+  {country:"Αγκόλα", capital:"Λουάντα", continent:"Αφρική", tag:"hard"},
+  {country:"Ζιμπάμπουε", capital:"Χαράρε", continent:"Αφρική", tag:"hard"},
+  {country:"Ζάμπια", capital:"Λουσάκα", continent:"Αφρική", tag:"hard"},
+
+  // Asia
+  {country:"Ιαπωνία", capital:"Τόκιο", continent:"Ασία", tag:"easy"},
+  {country:"Κίνα", capital:"Πεκίνο", continent:"Ασία", tag:"easy"},
+  {country:"Νότια Κορέα", capital:"Σεούλ", continent:"Ασία", tag:"easy"},
+  {country:"Ινδία", capital:"Νέο Δελχί", continent:"Ασία", tag:"easy"},
+  {country:"Πακιστάν", capital:"Ισλαμαμπάντ", continent:"Ασία", tag:"hard"},
+  {country:"Μπαγκλαντές", capital:"Ντάκα", continent:"Ασία", tag:"hard"},
+  {country:"Ινδονησία", capital:"Τζακάρτα", continent:"Ασία", tag:"med"},
+  {country:"Φιλιππίνες", capital:"Μανίλα", continent:"Ασία", tag:"med"},
+  {country:"Ταϊλάνδη", capital:"Μπανγκόκ", continent:"Ασία", tag:"med"},
+  {country:"Μαλαισία", capital:"Κουάλα Λουμπούρ", continent:"Ασία", tag:"hard"},
+  {country:"Σιγκαπούρη", capital:"Σιγκαπούρη", continent:"Ασία", tag:"med"},
+  {country:"Βιετνάμ", capital:"Ανόι", continent:"Ασία", tag:"med"},
+  {country:"Καζακστάν", capital:"Αστάνα", continent:"Ασία", tag:"hard"},
+  {country:"Σαουδική Αραβία", capital:"Ριάντ", continent:"Ασία", tag:"med"},
+  {country:"Ιράν", capital:"Τεχεράνη", continent:"Ασία", tag:"med"},
+  {country:"Ιράκ", capital:"Βαγδάτη", continent:"Ασία", tag:"med"},
+  {country:"Συρία", capital:"Δαμασκός", continent:"Ασία", tag:"hard"},
+  {country:"Ιορδανία", capital:"Αμμάν", continent:"Ασία", tag:"hard"},
+  {country:"Ισραήλ", capital:"Ιερουσαλήμ", continent:"Ασία", tag:"hard"},
+  {country:"Μογγολία", capital:"Ουλάν Μπατόρ", continent:"Ασία", tag:"hard"},
+  {country:"Νεπάλ", capital:"Κατμαντού", continent:"Ασία", tag:"hard"},
+  {country:"Σρι Λάνκα", capital:"Σρι Τζαγιαγουαρντενεπούρα Κότε", continent:"Ασία", tag:"hard"}, // ντε φάκτο Κολόμπο
+
+  // Oceania
+  {country:"Αυστραλία", capital:"Καμπέρα", continent:"Ωκεανία", tag:"med"},
+  {country:"Νέα Ζηλανδία", capital:"Ουέλλινγκτον", continent:"Ωκεανία", tag:"med"},
+  {country:"Φίτζι", capital:"Σούβα", continent:"Ωκεανία", tag:"hard"},
+  {country:"Παπούα Νέα Γουινέα", capital:"Πορτ Μόρεσμπι", continent:"Ωκεανία", tag:"hard"}
+];
+
+// --- State ---
+const ROUND_LENGTH = 10;
+let mode = 'easy'; // 'easy' | 'med' | 'hard'
+let withTimer = false;
+let current = 0, score = 0, streak = 0, best = Number(localStorage.getItem('capitalQuizBest')||0);
+let maxStreak = 0, answered = false;
+let history = []; // για ανασκόπηση
+let timerId=null, timeLeftMs=15000;
+
+// --- Elements ---
+const qNumEl = document.getElementById('qNum');
+const scoreEl = document.getElementById('score');
+const streakEl = document.getElementById('streak');
+const bestEl = document.getElementById('best'); bestEl.textContent = best;
+const questionEl = document.getElementById('question');
+const optionsEl = document.getElementById('options');
+const nextBtn = document.getElementById('nextBtn');
+const skipBtn = document.getElementById('skipBtn');
+const timerWrap = document.getElementById('timer');
+const timerFill = document.getElementById('timerFill');
+const endSec = document.getElementById('end');
+const gameSec = document.getElementById('game');
+const finalScore = document.getElementById('finalScore');
+const finalCorrect = document.getElementById('finalCorrect');
+const finalStreak = document.getElementById('finalStreak');
+const feedback = document.getElementById('feedback');
+const reviewBtn = document.getElementById('reviewBtn');
+const reviewBox = document.getElementById('review');
+const playAgainBtn = document.getElementById('playAgainBtn');
+const modeLabel = document.getElementById('modeLabel');
+const easyBtn = document.getElementById('easyBtn'), medBtn = document.getElementById('medBtn'), hardBtn = document.getElementById('hardBtn');
+const timerToggle = document.getElementById('timerToggle');
+const themeBtn = document.getElementById('themeBtn');
+
+// --- Helpers ---
+const rand = (n)=>Math.floor(Math.random()*n);
+function sample(arr, k, forbid=null){
+  const out=[]; const used=new Set(forbid? [forbid]:[]);
+  while(out.length<k && used.size<arr.length){
+    const i=rand(arr.length); const key = arr[i].capital;
+    if(used.has(key)) continue; used.add(key); out.push(arr[i]);
+  }
+  return out;
+}
+function pickQuestion(set){
+  // προτίμησε ίδιoα ήπειρο για παραπλανητικές επιλογές
+  const item = set[rand(set.length)];
+  const sameCont = set.filter(x=>x.continent===item.continent && x.capital!==item.capital);
+  const pool = sameCont.length>=3 ? sameCont : set.filter(x=>x.capital!==item.capital);
+  const wrongs = sample(pool, 3, item.capital).map(x=>x.capital);
+  const opts = [...wrongs, item.capital].sort(()=>Math.random()-.5);
+  return {country:item.country, capital:item.capital, options:opts, continent:item.continent};
+}
+function modeFilter(mode){
+  if(mode==='easy') return DATA.filter(x=>x.tag!=='hard' && (x.continent==='Ευρώπη' || ['ΗΠΑ','Καναδάς','Αυστραλία','Ιαπωνία'].includes(x.country)));
+  if(mode==='med')  return DATA.filter(x=>x.tag!=='hard');
+  return DATA.slice(); // hard = όλα
+}
+function setMode(newMode){
+  mode=newMode;
+  easyBtn.setAttribute('aria-pressed', String(mode==='easy'));
+  medBtn.setAttribute('aria-pressed', String(mode==='med'));
+  hardBtn.setAttribute('aria-pressed', String(mode==='hard'));
+  modeLabel.textContent = 'Λειτουργία: ' + (mode==='easy'?'Εύκολο':mode==='med'?'Μεσαίο':'Δύσκολο');
+  resetGame();
+}
+function resetGame(){
+  current=0; score=0; streak=0; maxStreak=0; history=[];
+  scoreEl.textContent=score; streakEl.textContent=streak; qNumEl.textContent=current+1;
+  endSec.style.display='none'; gameSec.style.display='block'; nextBtn.disabled=true;
+  loadQuestion();
+}
+function loadQuestion(){
+  clearTimer();
+  optionsEl.innerHTML='';
+  const set = modeFilter(mode);
+  const q = pickQuestion(set);
+  questionEl.textContent = `Ποια είναι η πρωτεύουσα της ${q.country};`;
+  const opts = q.options;
+  opts.forEach((cap, idx)=>{
+    const btn=document.createElement('button');
+    btn.className='btn';
+    btn.textContent= `${idx+1}. ${cap}`;
+    btn.dataset.correct = String(cap===q.capital);
+    btn.addEventListener('click', ()=>choose(btn, q));
+    optionsEl.appendChild(btn);
+  });
+  answered=false; nextBtn.disabled=true;
+  skipBtn.disabled=false;
+  if(withTimer){
+    timeLeftMs=15000;
+    timerWrap.style.display='block';
+    timerFill.style.width='100%';
+    timerId=setInterval(()=>{
+      timeLeftMs -= 200;
+      const pct=Math.max(0, timeLeftMs/15000)*100;
+      timerFill.style.width = pct+'%';
+      if(timeLeftMs<=0){ clearTimer(); autoReveal(q); }
+    },200);
+  }else{
+    timerWrap.style.display='none';
+  }
+}
+function clearTimer(){ if(timerId){ clearInterval(timerId); timerId=null; } }
+function autoReveal(q){
+  if(answered) return;
+  answered=true; nextBtn.disabled=false; skipBtn.disabled=true;
+  // μαρκάρινε σωστή
+  [...optionsEl.children].forEach(btn=>{
+    if(btn.dataset.correct==='true'){ btn.classList.add('correct'); btn.setAttribute('aria-label','Σωστή'); }
+    btn.disabled=true;
+  });
+  history.push({q:questionEl.textContent, correct:q.capital, picked:null});
+}
+function choose(btn, q){
+  if(answered) return;
+  answered=true; nextBtn.disabled=false; skipBtn.disabled=true; clearTimer();
+  const ok = btn.dataset.correct==='true';
+  if(ok){ btn.classList.add('correct'); score+=10; streak++; maxStreak=Math.max(maxStreak,streak); }
+  else{
+    btn.classList.add('wrong');
+    // δείξε και τη σωστή
+    const correctBtn=[...optionsEl.children].find(b=>b.dataset.correct==='true');
+    if(correctBtn) correctBtn.classList.add('correct');
+    streak=0;
+  }
+  scoreEl.textContent=score; streakEl.textContent=streak;
+  // κλείδωσε επιλογές
+  [...optionsEl.children].forEach(b=>b.disabled=true);
+  history.push({q:questionEl.textContent, correct:q.capital, picked: btn.textContent.replace(/^\d+\.\s/,'')});
+}
+function next(){
+  if(!answered) return;
+  current++;
+  if(current>=ROUND_LENGTH) return finish();
+  qNumEl.textContent=current+1;
+  loadQuestion();
+}
+function finish(){
+  gameSec.style.display='none'; endSec.style.display='block';
+  finalScore.textContent=score;
+  const correctCount = history.filter(x=>x.picked===x.correct || x.picked===null).length; // autoReveal counts as wrong pick shown as null
+  finalCorrect.textContent=correctCount;
+  finalStreak.textContent=maxStreak;
+  if(score>best){ best=score; localStorage.setItem('capitalQuizBest', String(best)); bestEl.textContent=best; }
+  const msg = score>=80 ? "Εξαιρετική δουλειά — είσαι σε top φόρμα!":
+              score>=60 ? "Πολύ καλός— με λίγη εξάσκηση πας κορυφή." :
+              score>=30 ? "Καλή αρχή! Συνέχισε για να κλειδώσεις τις δύσκολες." :
+                          "Κανένα άγχος—πάμε άλλη μία στον «Εύκολο» και χτίζουμε.";
+  feedback.textContent = msg;
+  // ετοίμασε ανασκόπηση
+  reviewBox.style.display='none'; reviewBox.innerHTML = history.map((h,i)=>{
+    const picked = h.picked ?? '—';
+    const ok = (picked===h.correct);
+    return `<div style="padding:8px 10px; border:1px solid rgba(255,255,255,.12); border-radius:10px; margin-top:8px">
+      <div style="font-weight:800">Q${i+1}. ${h.q}</div>
+      <div>Η σωστή απάντηση: <b>${h.correct}</b></div>
+      <div>Η επιλογή σου: <b style="color:${ok?'var(--right)':'var(--wrong)'}">${picked}</b></div>
+    </div>`;
+  }).join('');
+}
+
+// --- Events ---
+nextBtn.addEventListener('click', next);
+skipBtn.addEventListener('click', ()=>{
+  if(answered) return;
+  answered=true; nextBtn.disabled=false; skipBtn.disabled=true; clearTimer();
+  // Αν παράλειψη, μαρκάρινε σωστή χωρίς ποινή/μπόνους
+  [...optionsEl.children].forEach(btn=>{
+    if(btn.dataset.correct==='true'){ btn.classList.add('correct'); }
+    btn.disabled=true;
+  });
+  streak=0; streakEl.textContent=streak;
+  history.push({q:questionEl.textContent, correct:[...optionsEl.children].find(b=>b.dataset.correct==='true').textContent.replace(/^\d+\.\s/,''), picked:'— (παράλειψη)'});
+});
+playAgainBtn.addEventListener('click', resetGame);
+reviewBtn.addEventListener('click', ()=>{ reviewBox.style.display = reviewBox.style.display==='none'?'block':'none'; });
+
+easyBtn.addEventListener('click', ()=>setMode('easy'));
+medBtn.addEventListener('click', ()=>setMode('med'));
+hardBtn.addEventListener('click', ()=>setMode('hard'));
+timerToggle.addEventListener('change', (e)=>{ withTimer = e.target.checked; resetGame(); });
+
+// Keyboard shortcuts
+window.addEventListener('keydown', (e)=>{
+  if(['1','2','3','4'].includes(e.key) && !answered){
+    const idx = Number(e.key)-1;
+    const btn = optionsEl.children[idx];
+    if(btn) btn.click();
+  }else if(e.key.toLowerCase()==='n'){
+    if(endSec.style.display==='block') resetGame();
+    else next();
+  }
+});
+
+// Theme toggle + persist
+(function(){
+  const saved = localStorage.getItem('capitalQuizTheme');
+  if(saved) document.body.setAttribute('data-theme', saved);
+})();
+themeBtn.addEventListener('click', ()=>{
+  const cur = document.body.getAttribute('data-theme');
+  const next = cur==='light' ? 'dark' : 'light';
+  document.body.setAttribute('data-theme', next);
+  localStorage.setItem('capitalQuizTheme', next);
+});
+
+// Init
+resetGame();
+</script>
+</body>
+</html>
